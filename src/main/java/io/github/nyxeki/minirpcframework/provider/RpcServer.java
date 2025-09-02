@@ -65,9 +65,6 @@ public class RpcServer {
                         oos.flush();
                         System.out.println("Returned response: " + result);
 
-
-                        // TODO: Call the real service method according to the content of the request.
-
                     } catch (Exception e) {
                         System.err.println("Error processing request: " + e.getMessage());
                     }
