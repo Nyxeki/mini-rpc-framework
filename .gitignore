@@ -1,4 +1,4 @@
-target/
+git push -u origin feat/initial-setuptarget/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
