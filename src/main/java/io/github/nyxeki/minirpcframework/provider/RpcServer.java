@@ -25,7 +25,7 @@ public class RpcServer {
                         try {
                             client.close();
                         } catch (IOException e) {
-                            throw new RuntimeException(e);
+                            System.err.println("Error closing client socket: " + e.getMessage());
                         }
                     }
                 }).start();
