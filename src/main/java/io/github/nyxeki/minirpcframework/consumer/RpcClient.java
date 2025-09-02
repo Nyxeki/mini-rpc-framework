@@ -10,29 +10,13 @@ import java.net.Socket;
 public class RpcClient {
 
     public static void main(String[] args) {
-        System.out.println("RpcClient starting...");
-        try (Socket socket = new Socket("127.0.0.1", 9000)) {
-            System.out.println("Connected...");
 
-            ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
+        RpcClientProxy rpcClientProxy = new RpcClientProxy();
 
-            RpcRequest rpcRequest = new RpcRequest();
-            rpcRequest.setInterfaceName(HelloService.class.getName());
-            rpcRequest.setMethodName("sayHello");
-            rpcRequest.setParameters(new Object[]{"world"});
-            rpcRequest.setParameterTypes(new Class<?>[]{String.class});
+        HelloService helloService = rpcClientProxy.getProxy(HelloService.class);
 
-            oos.writeObject(rpcRequest);
-            oos.flush();
-            System.out.println("Sending request: " + rpcRequest.getMethodName());
+        String result = helloService.sayHello("world");
 
-            ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
-            Object response = ois.readObject();
-            System.out.println("Received response: " + response);
-
-        } catch (Exception e) {
-            System.err.println("Client failed: " + e.getMessage());
-        }
-        System.out.println("RpcClient finished");
+        System.out.println("Response from server: " + result);
     }
 }
