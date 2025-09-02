@@ -3,6 +3,7 @@ package io.github.nyxeki.minirpcframework.consumer;
 import io.github.nyxeki.minirpcframework.api.HelloService;
 import io.github.nyxeki.minirpcframework.api.RpcRequest;
 
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 
@@ -22,7 +23,12 @@ public class RpcClient {
             rpcRequest.setParameterTypes(new Class<?>[]{String.class});
 
             oos.writeObject(rpcRequest);
-            System.out.println("Sending request..." + rpcRequest);
+            oos.flush();
+            System.out.println("Sending request: " + rpcRequest.getMethodName());
+
+            ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
+            Object response = ois.readObject();
+            System.out.println("Received response: " + response);
 
         } catch (Exception e) {
             System.err.println("Client failed: " + e.getMessage());
