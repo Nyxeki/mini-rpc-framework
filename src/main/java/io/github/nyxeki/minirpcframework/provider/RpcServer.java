@@ -1,6 +1,8 @@
 package io.github.nyxeki.minirpcframework.provider;
 
 import io.github.nyxeki.minirpcframework.api.RpcRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -13,6 +15,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class RpcServer {
+
+    private static final Logger logger = LoggerFactory.getLogger(RpcServer.class);
 
     private final ExecutorService threadPool;
 
@@ -34,7 +38,7 @@ public class RpcServer {
     public RpcServer() {
         int corePoolSize = Runtime.getRuntime().availableProcessors();
         threadPool = Executors.newFixedThreadPool(corePoolSize);
-        System.out.println("ThreadPool started with " + corePoolSize + " cores.");
+        logger.info("ThreadPool started with {} cores.", corePoolSize);
     }
 
     /**
@@ -50,17 +54,17 @@ public class RpcServer {
 
     public void start(int port) {
         try (ServerSocket server = new ServerSocket(port)) {
-            System.out.println("RPC server started on port " + port);
+            logger.info("RPC Server started on port: {}", port);
 
             while (true) {
                 Socket client = server.accept();
-                System.out.println("Accepted connection from " + client.getInetAddress());
+                logger.info("Accepted connection from {}", client.getInetAddress());
                 threadPool.submit(() -> {
                     try (
                             ObjectOutputStream oos = new ObjectOutputStream(client.getOutputStream());
                             ObjectInputStream ois = new ObjectInputStream(client.getInputStream())) {
                         RpcRequest request = (RpcRequest) ois.readObject();
-                        System.out.println("Processing request in thread: " + Thread.currentThread().getName());
+                        logger.info("Processing request for interface: {}", request.getInterfaceName());
 
 
                         Object service = serviceRegistry.get(request.getInterfaceName());
@@ -72,13 +76,14 @@ public class RpcServer {
 
                         oos.writeObject(result);
                         oos.flush();
+                        logger.info("Returned response for request id (just an example, not implemented yet)");
                     } catch (Exception e) {
-                        System.err.println("Error processing request: " + e.getMessage());
+                        logger.error("Error processing request: {}", e.getMessage(), e);
                     }
                 });
             }
         } catch (IOException e) {
-            System.err.println("Server exception: " + e.getMessage());
+            logger.error("Server exception: {}", e.getMessage(), e);
             throw new RuntimeException(e);
         }
     }
