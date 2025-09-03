@@ -1,12 +1,11 @@
 package io.github.nyxeki.minirpcframework.provider;
 
 import io.github.nyxeki.minirpcframework.api.RpcRequest;
+import io.github.nyxeki.minirpcframework.api.Serializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
@@ -15,6 +14,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class RpcServer {
+
+    Serializer serializer = new JsonSerializer();
 
     private static final Logger logger = LoggerFactory.getLogger(RpcServer.class);
 
@@ -61,11 +62,14 @@ public class RpcServer {
                 logger.info("Accepted connection from {}", client.getInetAddress());
                 threadPool.submit(() -> {
                     try (
-                            ObjectOutputStream oos = new ObjectOutputStream(client.getOutputStream());
-                            ObjectInputStream ois = new ObjectInputStream(client.getInputStream())) {
-                        RpcRequest request = (RpcRequest) ois.readObject();
+                            DataInputStream dataInputStream = new DataInputStream(client.getInputStream());
+                            DataOutputStream dataOutputStream = new DataOutputStream(client.getOutputStream())
+                    ) {
+                        int requestLength = dataInputStream.readInt();
+                        byte[] requestBytes = new byte[requestLength];
+                        dataInputStream.readFully(requestBytes);
+                        RpcRequest request = serializer.deserialize(requestBytes, RpcRequest.class);
                         logger.info("Processing request for interface: {}", request.getInterfaceName());
-
 
                         Object service = serviceRegistry.get(request.getInterfaceName());
                         if (service == null) {
@@ -74,9 +78,10 @@ public class RpcServer {
                         java.lang.reflect.Method method = service.getClass().getMethod(request.getMethodName(), request.getParameterTypes());
                         Object result = method.invoke(service, request.getParameters());
 
-                        oos.writeObject(result);
-                        oos.flush();
-                        logger.info("Returned response for request id (just an example, not implemented yet)");
+                        byte[] responseBytes = serializer.serialize(result);
+                        dataOutputStream.writeInt(responseBytes.length);
+                        dataOutputStream.write(responseBytes);
+                        dataOutputStream.flush();
                     } catch (Exception e) {
                         logger.error("Error processing request: {}", e.getMessage(), e);
                     }
