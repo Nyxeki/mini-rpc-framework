@@ -83,7 +83,10 @@ public class RpcServer {
                             response.setData(result);
                         } catch (Exception e) {
                             logger.error("Method invocation failed for request: {}", request.getInterfaceName(), e);
-                            response.setErrorMessage(e.getCause().getMessage());
+                            Throwable cause = e.getCause();
+                            String errorMessage = (cause != null) ? cause.getMessage() : e.getMessage();
+
+                            response.setErrorMessage(errorMessage);
                         }
 
                         byte[] responseBytes = serializer.serialize(response);
