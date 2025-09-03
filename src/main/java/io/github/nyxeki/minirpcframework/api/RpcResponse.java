@@ -15,11 +15,11 @@ public class RpcResponse {
     /**
      * The exception thrown if the method invocation failed.
      */
-    private Exception exception;
+    private String errorMessage;
 
     @JsonIgnore
     public boolean isSuccess() {
-        return exception == null;
+        return errorMessage == null;
     }
 
     public Object getData() {
@@ -30,11 +30,11 @@ public class RpcResponse {
         this.data = data;
     }
 
-    public Exception getException() {
-        return exception;
+    public String getErrorMessage() {
+        return errorMessage;
     }
 
-    public void setException(Exception exception) {
-        this.exception = exception;
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
     }
 }
