@@ -1,6 +1,7 @@
 package io.github.nyxeki.minirpcframework.consumer;
 
 import io.github.nyxeki.minirpcframework.api.RpcRequest;
+import io.github.nyxeki.minirpcframework.api.RpcResponse;
 import io.github.nyxeki.minirpcframework.api.Serializer;
 import io.github.nyxeki.minirpcframework.provider.JsonSerializer;
 
@@ -11,6 +12,7 @@ import java.net.Socket;
 
 @SuppressWarnings("unchecked")
 public class RpcClientProxy {
+    Serializer serializer = new JsonSerializer();
 
     public <T> T getProxy(final Class<T> serviceInterface) {
         return (T) Proxy.newProxyInstance(
@@ -23,9 +25,7 @@ public class RpcClientProxy {
                     request.setParameters(args);
                     request.setParameterTypes(method.getParameterTypes());
                     try (Socket socket = new Socket("localhost", 9000)) {
-                        Serializer serializer = new JsonSerializer();
                         byte[] requestBytes = serializer.serialize(request);
-
                         DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
                         dataOutputStream.writeInt(requestBytes.length);
                         dataOutputStream.write(requestBytes);
@@ -36,8 +36,15 @@ public class RpcClientProxy {
                         byte[] responseBytes = new byte[responseLength];
                         dataInputStream.readFully(responseBytes);
 
-                        return serializer.deserialize(responseBytes, String.class);
+                        RpcResponse response = serializer.deserialize(responseBytes, RpcResponse.class);
 
+                        if (response.isSuccess()) {
+                            // If successful, return the data
+                            return response.getData();
+                        } else {
+                            // If failed, throw the server-side exception on the client side
+                            throw new RuntimeException("RPC call failed on server: " + response.getErrorMessage());
+                        }
                     }
                 }
         );
