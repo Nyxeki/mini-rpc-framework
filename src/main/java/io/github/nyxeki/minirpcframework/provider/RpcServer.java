@@ -17,7 +17,6 @@ import java.util.concurrent.Executors;
 public class RpcServer {
 
     Serializer serializer = new JsonSerializer();
-    RpcResponse response = new RpcResponse();
 
     private static final Logger logger = LoggerFactory.getLogger(RpcServer.class);
 
@@ -63,6 +62,7 @@ public class RpcServer {
                 Socket client = server.accept();
                 logger.info("Accepted connection from {}", client.getInetAddress());
                 threadPool.submit(() -> {
+                    RpcResponse response = new RpcResponse();
                     try (
                             DataInputStream dataInputStream = new DataInputStream(client.getInputStream());
                             DataOutputStream dataOutputStream = new DataOutputStream(client.getOutputStream())
@@ -83,10 +83,11 @@ public class RpcServer {
                             response.setData(result);
                         } catch (Exception e) {
                             logger.error("Method invocation failed for request: {}", request.getInterfaceName(), e);
-                            response.setException(e);
+                            response.setErrorMessage(e.getCause().getMessage());
                         }
 
                         byte[] responseBytes = serializer.serialize(response);
+
                         dataOutputStream.writeInt(responseBytes.length);
                         dataOutputStream.write(responseBytes);
                         dataOutputStream.flush();
