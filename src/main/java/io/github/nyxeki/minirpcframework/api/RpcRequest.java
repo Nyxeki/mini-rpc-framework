@@ -1,9 +1,8 @@
 package io.github.nyxeki.minirpcframework.api;
 
-import java.io.Serializable;
 import java.util.Arrays;
 
-public class RpcRequest implements Serializable {
+public class RpcRequest {
 
     private String interfaceName;
 

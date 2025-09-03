@@ -1,6 +1,7 @@
 package io.github.nyxeki.minirpcframework.provider;
 
 import io.github.nyxeki.minirpcframework.api.RpcRequest;
+import io.github.nyxeki.minirpcframework.api.RpcResponse;
 import io.github.nyxeki.minirpcframework.api.Serializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,6 +62,7 @@ public class RpcServer {
                 Socket client = server.accept();
                 logger.info("Accepted connection from {}", client.getInetAddress());
                 threadPool.submit(() -> {
+                    RpcResponse response = new RpcResponse();
                     try (
                             DataInputStream dataInputStream = new DataInputStream(client.getInputStream());
                             DataOutputStream dataOutputStream = new DataOutputStream(client.getOutputStream())
@@ -71,14 +73,24 @@ public class RpcServer {
                         RpcRequest request = serializer.deserialize(requestBytes, RpcRequest.class);
                         logger.info("Processing request for interface: {}", request.getInterfaceName());
 
-                        Object service = serviceRegistry.get(request.getInterfaceName());
-                        if (service == null) {
-                            throw new ClassNotFoundException(request.getInterfaceName() + " not found.");
-                        }
-                        java.lang.reflect.Method method = service.getClass().getMethod(request.getMethodName(), request.getParameterTypes());
-                        Object result = method.invoke(service, request.getParameters());
+                        try {
+                            Object service = serviceRegistry.get(request.getInterfaceName());
+                            if (service == null) {
+                                throw new ClassNotFoundException(request.getInterfaceName() + " not found.");
+                            }
+                            java.lang.reflect.Method method = service.getClass().getMethod(request.getMethodName(), request.getParameterTypes());
+                            Object result = method.invoke(service, request.getParameters());
+                            response.setData(result);
+                        } catch (Exception e) {
+                            logger.error("Method invocation failed for request: {}", request.getInterfaceName(), e);
+                            Throwable cause = e.getCause();
+                            String errorMessage = (cause != null) ? cause.getMessage() : e.getMessage();
 
-                        byte[] responseBytes = serializer.serialize(result);
+                            response.setErrorMessage(errorMessage);
+                        }
+
+                        byte[] responseBytes = serializer.serialize(response);
+
                         dataOutputStream.writeInt(responseBytes.length);
                         dataOutputStream.write(responseBytes);
                         dataOutputStream.flush();
