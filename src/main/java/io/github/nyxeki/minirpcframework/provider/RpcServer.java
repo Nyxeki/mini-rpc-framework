@@ -1,6 +1,7 @@
 package io.github.nyxeki.minirpcframework.provider;
 
 import io.github.nyxeki.minirpcframework.api.RpcRequest;
+import io.github.nyxeki.minirpcframework.api.RpcResponse;
 import io.github.nyxeki.minirpcframework.api.Serializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,7 @@ import java.util.concurrent.Executors;
 public class RpcServer {
 
     Serializer serializer = new JsonSerializer();
+    RpcResponse response = new RpcResponse();
 
     private static final Logger logger = LoggerFactory.getLogger(RpcServer.class);
 
@@ -71,14 +73,20 @@ public class RpcServer {
                         RpcRequest request = serializer.deserialize(requestBytes, RpcRequest.class);
                         logger.info("Processing request for interface: {}", request.getInterfaceName());
 
-                        Object service = serviceRegistry.get(request.getInterfaceName());
-                        if (service == null) {
-                            throw new ClassNotFoundException(request.getInterfaceName() + " not found.");
+                        try {
+                            Object service = serviceRegistry.get(request.getInterfaceName());
+                            if (service == null) {
+                                throw new ClassNotFoundException(request.getInterfaceName() + " not found.");
+                            }
+                            java.lang.reflect.Method method = service.getClass().getMethod(request.getMethodName(), request.getParameterTypes());
+                            Object result = method.invoke(service, request.getParameters());
+                            response.setData(result);
+                        } catch (Exception e) {
+                            logger.error("Method invocation failed for request: {}", request.getInterfaceName(), e);
+                            response.setException(e);
                         }
-                        java.lang.reflect.Method method = service.getClass().getMethod(request.getMethodName(), request.getParameterTypes());
-                        Object result = method.invoke(service, request.getParameters());
 
-                        byte[] responseBytes = serializer.serialize(result);
+                        byte[] responseBytes = serializer.serialize(response);
                         dataOutputStream.writeInt(responseBytes.length);
                         dataOutputStream.write(responseBytes);
                         dataOutputStream.flush();
