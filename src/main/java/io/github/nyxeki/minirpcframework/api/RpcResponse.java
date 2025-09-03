@@ -1,5 +1,7 @@
 package io.github.nyxeki.minirpcframework.api;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 /**
  * A standard response object for all RPC calls.
  */
@@ -15,6 +17,7 @@ public class RpcResponse {
      */
     private Exception exception;
 
+    @JsonIgnore
     public boolean isSuccess() {
         return exception == null;
     }
