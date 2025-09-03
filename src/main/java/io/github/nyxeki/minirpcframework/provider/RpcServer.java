@@ -9,8 +9,12 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class RpcServer {
+
+    private final ExecutorService threadPool;
 
     // A map to store registered services. The key is the interface name, and the value is the implementation object.
     private final Map<String, Object> serviceRegistry = new HashMap<>();
@@ -22,6 +26,15 @@ public class RpcServer {
         server.register(new HelloServiceImpl());
         
         server.start(9000);
+    }
+
+    /**
+     * Initialize the thread pool.
+     */
+    public RpcServer() {
+        int corePoolSize = Runtime.getRuntime().availableProcessors();
+        threadPool = Executors.newFixedThreadPool(corePoolSize);
+        System.out.println("ThreadPool started with " + corePoolSize + " cores.");
     }
 
     /**
@@ -42,33 +55,27 @@ public class RpcServer {
             while (true) {
                 Socket client = server.accept();
                 System.out.println("Accepted connection from " + client.getInetAddress());
-                new Thread(() -> {
+                threadPool.submit(() -> {
                     try (
-                        ObjectInputStream ois = new ObjectInputStream(client.getInputStream());
-                        ObjectOutputStream oos = new ObjectOutputStream(client.getOutputStream())
-                    ) {
+                            ObjectOutputStream oos = new ObjectOutputStream(client.getOutputStream());
+                            ObjectInputStream ois = new ObjectInputStream(client.getInputStream())) {
+                        RpcRequest request = (RpcRequest) ois.readObject();
                         System.out.println("Processing request in thread: " + Thread.currentThread().getName());
-                        RpcRequest rpcRequest = (RpcRequest) ois.readObject();
-                        System.out.println("Received request from client: " + rpcRequest);
 
-                        // Find the serviceImpl from the register
-                        Object service = serviceRegistry.get(rpcRequest.getInterfaceName());
+
+                        Object service = serviceRegistry.get(request.getInterfaceName());
                         if (service == null) {
-                            throw new ClassNotFoundException(rpcRequest.getInterfaceName() + " not found.");
+                            throw new ClassNotFoundException(request.getInterfaceName() + " not found.");
                         }
-
-                        java.lang.reflect.Method method = service.getClass().getMethod(rpcRequest.getMethodName(), rpcRequest.getParameterTypes());
-
-                        Object result = method.invoke(service, rpcRequest.getParameters());
+                        java.lang.reflect.Method method = service.getClass().getMethod(request.getMethodName(), request.getParameterTypes());
+                        Object result = method.invoke(service, request.getParameters());
 
                         oos.writeObject(result);
                         oos.flush();
-                        System.out.println("Returned response: " + result);
-
                     } catch (Exception e) {
                         System.err.println("Error processing request: " + e.getMessage());
                     }
-                }).start();
+                });
             }
         } catch (IOException e) {
             System.err.println("Server exception: " + e.getMessage());
