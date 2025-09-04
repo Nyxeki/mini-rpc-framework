@@ -30,6 +30,9 @@ public class RpcServer {
 
         // Register the HelloService implementation before starting the server.
         server.register(new HelloServiceImpl());
+
+        ZooKeeperRegistry zooKeeperRegistry = new ZooKeeperRegistry();
+        zooKeeperRegistry.registerService(HelloServiceImpl.class.getName(), "localhost:9000");
         
         server.start(9000);
     }
