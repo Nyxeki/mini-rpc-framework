@@ -50,9 +50,7 @@ public class RpcServer {
      * Initialize the thread pool.
      */
     public RpcServer() {
-        int corePoolSize = Runtime.getRuntime().availableProcessors();
-        threadPool = Executors.newFixedThreadPool(corePoolSize);
-        logger.info("ThreadPool started with {} cores.", corePoolSize);
+        threadPool = Executors.newVirtualThreadPerTaskExecutor();
     }
 
     /**
