@@ -3,6 +3,7 @@ package io.github.nyxeki.minirpcframework.consumer;
 import io.github.nyxeki.minirpcframework.api.RpcRequest;
 import io.github.nyxeki.minirpcframework.api.RpcResponse;
 import io.github.nyxeki.minirpcframework.api.Serializer;
+import io.github.nyxeki.minirpcframework.api.ZooKeeperRegistry;
 import io.github.nyxeki.minirpcframework.provider.JsonSerializer;
 
 import java.io.DataInputStream;
@@ -14,6 +15,12 @@ import java.net.Socket;
 public class RpcClientProxy {
     Serializer serializer = new JsonSerializer();
 
+    private final ZooKeeperRegistry registry;
+
+    public RpcClientProxy() {
+        this.registry = new ZooKeeperRegistry();
+    }
+
     public <T> T getProxy(final Class<T> serviceInterface) {
         return (T) Proxy.newProxyInstance(
                 serviceInterface.getClassLoader(),
@@ -24,7 +31,15 @@ public class RpcClientProxy {
                     request.setMethodName(method.getName());
                     request.setParameters(args);
                     request.setParameterTypes(method.getParameterTypes());
-                    try (Socket socket = new Socket("localhost", 9000)) {
+
+                    // use discoverService
+                    String serviceAddress = registry.discoverService(serviceInterface.getName());
+                    String[] hostAndPort = serviceAddress.split(":");
+
+                    String host = hostAndPort[0];
+                    int port = Integer.parseInt(hostAndPort[1]);
+
+                    try (Socket socket = new Socket(host, port)) {
                         byte[] requestBytes = serializer.serialize(request);
                         DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
                         dataOutputStream.writeInt(requestBytes.length);
