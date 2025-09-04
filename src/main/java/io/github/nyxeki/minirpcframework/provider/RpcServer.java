@@ -36,7 +36,12 @@ public class RpcServer {
         server.register(helloService);
 
         ZooKeeperRegistry registry = new ZooKeeperRegistry();
-        registry.registerService(HelloService.class.getName(), serviceAddress);
+        try {
+            registry.registerService(HelloService.class.getName(), serviceAddress);
+        } catch (Exception e) {
+            logger.error("Failed to register service. Shutting down.", e);
+            System.exit(1);
+        }
 
         server.start(port);
     }

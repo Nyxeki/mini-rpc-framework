@@ -5,6 +5,8 @@ import io.github.nyxeki.minirpcframework.provider.RpcServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Scanner;
+
 public class RpcClient {
     private static final Logger logger = LoggerFactory.getLogger(RpcServer.class);
 
@@ -14,8 +16,25 @@ public class RpcClient {
 
         HelloService helloService = rpcClientProxy.getProxy(HelloService.class);
 
-        String result = helloService.sayHello("world");
+        Scanner scanner = new Scanner(System.in);
 
-        logger.info("Response from server: {}", result);
+        while (true) {
+            System.out.println("Press Enter to call the helloService, or type 'q' to quit.");
+            String input = scanner.nextLine();
+
+            // If the user types 'q', exit the loop.
+            if ("q".equalsIgnoreCase(input)) {
+                break;
+            }
+
+            // Call the method on the proxy object.
+            String result = helloService.sayHello(input);
+
+            // Print the result returned from the server.
+            logger.info("Response from server: {}", result);
+            System.out.println("------------------------------------------");
+        }
+
+        logger.info("Client shutting down");
     }
 }

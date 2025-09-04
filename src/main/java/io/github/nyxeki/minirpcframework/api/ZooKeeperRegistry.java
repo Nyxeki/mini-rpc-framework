@@ -2,12 +2,19 @@ package io.github.nyxeki.minirpcframework.api;
 
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.framework.recipes.cache.CuratorCache;
+import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
+import org.apache.curator.framework.recipes.cache.PathChildrenCache;
+import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.zookeeper.CreateMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class ZooKeeperRegistry {
     private static final Logger logger = LoggerFactory.getLogger(ZooKeeperRegistry.class);
@@ -17,6 +24,10 @@ public class ZooKeeperRegistry {
     private static final String ZK_ROOT_PATH = "/rpc";
 
     private final CuratorFramework zkClient;
+
+    // local cache for server address.
+    private final Map<String, List<String>> serviceAddressCache = new ConcurrentHashMap<>();
+
 
     public ZooKeeperRegistry() {
         this.zkClient = CuratorFrameworkFactory.builder()
@@ -44,22 +55,56 @@ public class ZooKeeperRegistry {
             logger.info("Successfully registered service {} at {}", serviceName, serviceInstancePath);
 
         } catch (Exception e) {
-            logger.error("Failed to register service", e);
+            throw new RuntimeException("Failed to register service at " + serviceAddress, e);
         }
     }
 
     public List<String> discoverService(String serviceName) {
+
+        // first, try to get the service list from the local cache.
+        List<String> cachedInstances = serviceAddressCache.get(serviceName);
+        if (cachedInstances != null && !cachedInstances.isEmpty()) {
+            logger.info("Discovered {} instances for service {}. Caching and watching.", cachedInstances.size(), serviceName);
+            return cachedInstances;
+        }
+
         try {
             String servicePath = ZK_ROOT_PATH + "/" + serviceName;
             List<String> instances = zkClient.getChildren().forPath(servicePath);
             if (instances == null || instances.isEmpty()) {
-                throw new RuntimeException("No available instances for service: " + serviceName);
+                logger.warn("No available instances for service: {}", serviceName);
+                return null;
             }
-            logger.info("Discovered service {} at {}", serviceName, instances);
+            logger.info("Discovered {} instances for service {}. Caching and watching.", instances.size(), serviceName);
+            serviceAddressCache.put(serviceName, instances);
+            registerWatcher(servicePath, serviceName);
             return instances;
         } catch (Exception e) {
             logger.error("Failed to discover service", e);
             throw new RuntimeException(e);
         }
+    }
+
+    private void registerWatcher(String servicePath, String serviceName) throws Exception {
+        PathChildrenCache pathChildrenCache = new PathChildrenCache(zkClient, servicePath, true);
+
+        // Register a listener for the cache.
+        pathChildrenCache.getListenable().addListener((client, event) -> {
+            logger.info("Child node event received: {}", event.getType());
+
+            if (event.getType() == PathChildrenCacheEvent.Type.CHILD_ADDED ||
+                    event.getType() == PathChildrenCacheEvent.Type.CHILD_REMOVED) {
+
+                logger.info("Service {} has changed. Re-fetching service list...", serviceName);
+
+                // Re-fetch the latest list of children (service addresses).
+                List<String> latestInstances = client.getChildren().forPath(servicePath);
+
+                // Update the local cache.
+                serviceAddressCache.put(serviceName, latestInstances);
+                logger.info("Service {} cache updated with instances: {}", serviceName, latestInstances);
+            }
+        });
+        pathChildrenCache.start();
     }
 }
