@@ -24,15 +24,21 @@ public class RpcServer {
     private final Map<String, Object> serviceRegistry = new HashMap<>();
 
     public static void main(String[] args) {
+        int port = 9000; // Default port
+        if (args.length > 0) {
+            port = Integer.parseInt(args[0]);
+        }
+
+        final String serviceAddress = "localhost:" + port;
+
         RpcServer server = new RpcServer();
+        HelloService helloService = new HelloServiceImpl();
+        server.register(helloService);
 
-        // Register the HelloService implementation before starting the server.
-        server.register(new HelloServiceImpl());
+        ZooKeeperRegistry registry = new ZooKeeperRegistry();
+        registry.registerService(HelloService.class.getName(), serviceAddress);
 
-        ZooKeeperRegistry zooKeeperRegistry = new ZooKeeperRegistry();
-        zooKeeperRegistry.registerService(HelloService.class.getName(), "localhost:9000");
-        
-        server.start(9000);
+        server.start(port);
     }
 
     /**
