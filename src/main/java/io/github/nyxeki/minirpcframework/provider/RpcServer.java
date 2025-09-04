@@ -3,6 +3,7 @@ package io.github.nyxeki.minirpcframework.provider;
 import io.github.nyxeki.minirpcframework.api.RpcRequest;
 import io.github.nyxeki.minirpcframework.api.RpcResponse;
 import io.github.nyxeki.minirpcframework.api.Serializer;
+import io.github.nyxeki.minirpcframework.api.ZooKeeperRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

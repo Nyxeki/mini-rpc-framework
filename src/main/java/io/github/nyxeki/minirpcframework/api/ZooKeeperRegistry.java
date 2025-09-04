@@ -1,4 +1,4 @@
-package io.github.nyxeki.minirpcframework.provider;
+package io.github.nyxeki.minirpcframework.api;
 
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
@@ -6,6 +6,8 @@ import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.zookeeper.CreateMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.List;
 
 public class ZooKeeperRegistry {
     private static final Logger logger = LoggerFactory.getLogger(ZooKeeperRegistry.class);
@@ -42,6 +44,24 @@ public class ZooKeeperRegistry {
 
         } catch (Exception e) {
             logger.error("Failed to register service", e);
+        }
+    }
+
+    public String discoverService(String serviceName) {
+        try {
+            String servicePath = ZK_ROOT_PATH + "/" + serviceName;
+            List<String> instances = zkClient.getChildren().forPath(servicePath);
+            if (instances == null || instances.isEmpty()) {
+                throw new RuntimeException("No available instances for service: " + serviceName);
+            }
+            // TODO: For now, we just return the first available instance.
+            // TODO: In a real scenario, a load balancing strategy would be applied here.
+            String serviceAddress = instances.get(0);
+            logger.info("Discovered service {} at {}", serviceName, serviceAddress);
+            return serviceAddress;
+        } catch (Exception e) {
+            logger.error("Failed to discover service", e);
+            throw new RuntimeException(e);
         }
     }
 }
