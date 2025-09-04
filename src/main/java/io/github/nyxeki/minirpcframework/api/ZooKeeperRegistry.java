@@ -4,6 +4,8 @@ import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.recipes.cache.CuratorCache;
 import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
+import org.apache.curator.framework.recipes.cache.PathChildrenCache;
+import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.zookeeper.CreateMode;
 import org.slf4j.Logger;
@@ -62,6 +64,7 @@ public class ZooKeeperRegistry {
         // first, try to get the service list from the local cache.
         List<String> cachedInstances = serviceAddressCache.get(serviceName);
         if (cachedInstances != null && !cachedInstances.isEmpty()) {
+            logger.info("Discovered {} instances for service {}. Caching and watching.", cachedInstances.size(), serviceName);
             return cachedInstances;
         }
 
@@ -83,25 +86,25 @@ public class ZooKeeperRegistry {
     }
 
     private void registerWatcher(String servicePath, String serviceName) throws Exception {
-        CuratorCache cache = CuratorCache.build(zkClient, servicePath);
-        CuratorCacheListener listener = CuratorCacheListener.builder()
-                .forChanges((oldNode, newNode) -> {
-                    logger.info("Service {} has changed. Re-fetching service list...", serviceName);
+        PathChildrenCache pathChildrenCache = new PathChildrenCache(zkClient, servicePath, true);
 
-                    List<String> latestInstances = cache.stream()
-                            .map(childData -> extractNodeName(childData.getPath()))
-                            .collect(Collectors.toList());
+        // Register a listener for the cache.
+        pathChildrenCache.getListenable().addListener((client, event) -> {
+            logger.info("Child node event received: {}", event.getType());
 
-                    serviceAddressCache.put(serviceName, latestInstances);
-                    logger.info("Service {} cache updated with instances: {}", serviceName, latestInstances);
-                })
-                .build();
+            if (event.getType() == PathChildrenCacheEvent.Type.CHILD_ADDED ||
+                    event.getType() == PathChildrenCacheEvent.Type.CHILD_REMOVED) {
 
-        cache.start();
-    }
+                logger.info("Service {} has changed. Re-fetching service list...", serviceName);
 
-    private String extractNodeName(String path) {
-        int lastSlash = path.lastIndexOf('/');
-        return (lastSlash == -1) ? path : path.substring(lastSlash + 1);
+                // Re-fetch the latest list of children (service addresses).
+                List<String> latestInstances = client.getChildren().forPath(servicePath);
+
+                // Update the local cache.
+                serviceAddressCache.put(serviceName, latestInstances);
+                logger.info("Service {} cache updated with instances: {}", serviceName, latestInstances);
+            }
+        });
+        pathChildrenCache.start();
     }
 }
