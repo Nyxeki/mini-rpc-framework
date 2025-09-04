@@ -53,7 +53,7 @@ public class ZooKeeperRegistry {
             logger.info("Successfully registered service {} at {}", serviceName, serviceInstancePath);
 
         } catch (Exception e) {
-            logger.error("Failed to register service", e);
+            throw new RuntimeException("Failed to register service at " + serviceAddress, e);
         }
     }
 
