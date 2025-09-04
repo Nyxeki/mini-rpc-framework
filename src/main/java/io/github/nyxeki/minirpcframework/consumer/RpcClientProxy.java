@@ -4,21 +4,26 @@ import io.github.nyxeki.minirpcframework.api.RpcRequest;
 import io.github.nyxeki.minirpcframework.api.RpcResponse;
 import io.github.nyxeki.minirpcframework.api.Serializer;
 import io.github.nyxeki.minirpcframework.api.ZooKeeperRegistry;
+import io.github.nyxeki.minirpcframework.consumer.loadbalancer.LoadBalancer;
+import io.github.nyxeki.minirpcframework.consumer.loadbalancer.RandomLoadBalancer;
 import io.github.nyxeki.minirpcframework.provider.JsonSerializer;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.lang.reflect.Proxy;
 import java.net.Socket;
+import java.util.List;
 
 @SuppressWarnings("unchecked")
 public class RpcClientProxy {
     Serializer serializer = new JsonSerializer();
 
     private final ZooKeeperRegistry registry;
+    private final LoadBalancer loadBalancer;
 
     public RpcClientProxy() {
         this.registry = new ZooKeeperRegistry();
+        this.loadBalancer = new RandomLoadBalancer();
     }
 
     public <T> T getProxy(final Class<T> serviceInterface) {
@@ -33,7 +38,11 @@ public class RpcClientProxy {
                     request.setParameterTypes(method.getParameterTypes());
 
                     // use discoverService
-                    String serviceAddress = registry.discoverService(serviceInterface.getName());
+                    List<String> instances = registry.discoverService(serviceInterface.getName());
+
+                    // use loadbalance to select one address from instances
+                    String serviceAddress = loadBalancer.select(instances);
+
                     String[] hostAndPort = serviceAddress.split(":");
 
                     String host = hostAndPort[0];

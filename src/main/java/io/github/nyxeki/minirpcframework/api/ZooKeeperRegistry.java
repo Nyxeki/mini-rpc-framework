@@ -48,18 +48,15 @@ public class ZooKeeperRegistry {
         }
     }
 
-    public String discoverService(String serviceName) {
+    public List<String> discoverService(String serviceName) {
         try {
             String servicePath = ZK_ROOT_PATH + "/" + serviceName;
             List<String> instances = zkClient.getChildren().forPath(servicePath);
             if (instances == null || instances.isEmpty()) {
                 throw new RuntimeException("No available instances for service: " + serviceName);
             }
-            // TODO: For now, we just return the first available instance.
-            // TODO: In a real scenario, a load balancing strategy would be applied here.
-            String serviceAddress = instances.get(0);
-            logger.info("Discovered service {} at {}", serviceName, serviceAddress);
-            return serviceAddress;
+            logger.info("Discovered service {} at {}", serviceName, instances);
+            return instances;
         } catch (Exception e) {
             logger.error("Failed to discover service", e);
             throw new RuntimeException(e);
