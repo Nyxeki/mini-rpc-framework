@@ -39,6 +39,9 @@ public class RpcClientProxy {
 
                     // use discoverService
                     List<String> instances = registry.discoverService(serviceInterface.getName());
+                    if (instances == null || instances.isEmpty()) {
+                        throw new RuntimeException("No available service provider for " + serviceInterface.getName());
+                    }
 
                     // use loadbalance to select one address from instances
                     String serviceAddress = loadBalancer.select(instances);
