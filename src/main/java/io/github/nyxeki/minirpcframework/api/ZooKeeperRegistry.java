@@ -20,7 +20,8 @@ public class ZooKeeperRegistry {
 
     public ZooKeeperRegistry() {
         this.zkClient = CuratorFrameworkFactory.builder()
-                .sessionTimeoutMs(5000)
+                .connectString(ZK_CONNECTION_STRING)
+                .sessionTimeoutMs(25000)
                 .retryPolicy(new ExponentialBackoffRetry(1000, 3))
                 .build();
         this.zkClient.start();

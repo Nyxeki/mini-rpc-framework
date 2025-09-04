@@ -1,9 +1,6 @@
 package io.github.nyxeki.minirpcframework.provider;
 
-import io.github.nyxeki.minirpcframework.api.RpcRequest;
-import io.github.nyxeki.minirpcframework.api.RpcResponse;
-import io.github.nyxeki.minirpcframework.api.Serializer;
-import io.github.nyxeki.minirpcframework.api.ZooKeeperRegistry;
+import io.github.nyxeki.minirpcframework.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +30,7 @@ public class RpcServer {
         server.register(new HelloServiceImpl());
 
         ZooKeeperRegistry zooKeeperRegistry = new ZooKeeperRegistry();
-        zooKeeperRegistry.registerService(HelloServiceImpl.class.getName(), "localhost:9000");
+        zooKeeperRegistry.registerService(HelloService.class.getName(), "localhost:9000");
         
         server.start(9000);
     }
