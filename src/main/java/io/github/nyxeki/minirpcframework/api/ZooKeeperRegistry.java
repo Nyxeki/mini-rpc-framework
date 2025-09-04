@@ -2,12 +2,17 @@ package io.github.nyxeki.minirpcframework.api;
 
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.framework.recipes.cache.CuratorCache;
+import org.apache.curator.framework.recipes.cache.CuratorCacheListener;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.zookeeper.CreateMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class ZooKeeperRegistry {
     private static final Logger logger = LoggerFactory.getLogger(ZooKeeperRegistry.class);
@@ -17,6 +22,10 @@ public class ZooKeeperRegistry {
     private static final String ZK_ROOT_PATH = "/rpc";
 
     private final CuratorFramework zkClient;
+
+    // local cache for server address.
+    private final Map<String, List<String>> serviceAddressCache = new ConcurrentHashMap<>();
+
 
     public ZooKeeperRegistry() {
         this.zkClient = CuratorFrameworkFactory.builder()
@@ -49,17 +58,50 @@ public class ZooKeeperRegistry {
     }
 
     public List<String> discoverService(String serviceName) {
+
+        // first, try to get the service list from the local cache.
+        List<String> cachedInstances = serviceAddressCache.get(serviceName);
+        if (cachedInstances != null && !cachedInstances.isEmpty()) {
+            return cachedInstances;
+        }
+
         try {
             String servicePath = ZK_ROOT_PATH + "/" + serviceName;
             List<String> instances = zkClient.getChildren().forPath(servicePath);
             if (instances == null || instances.isEmpty()) {
-                throw new RuntimeException("No available instances for service: " + serviceName);
+                logger.warn("No available instances for service: {}", serviceName);
+                return null;
             }
-            logger.info("Discovered service {} at {}", serviceName, instances);
+            logger.info("Discovered {} instances for service {}. Caching and watching.", instances.size(), serviceName);
+            serviceAddressCache.put(serviceName, instances);
+            registerWatcher(servicePath, serviceName);
             return instances;
         } catch (Exception e) {
             logger.error("Failed to discover service", e);
             throw new RuntimeException(e);
         }
+    }
+
+    private void registerWatcher(String servicePath, String serviceName) throws Exception {
+        CuratorCache cache = CuratorCache.build(zkClient, servicePath);
+        CuratorCacheListener listener = CuratorCacheListener.builder()
+                .forChanges((oldNode, newNode) -> {
+                    logger.info("Service {} has changed. Re-fetching service list...", serviceName);
+
+                    List<String> latestInstances = cache.stream()
+                            .map(childData -> extractNodeName(childData.getPath()))
+                            .collect(Collectors.toList());
+
+                    serviceAddressCache.put(serviceName, latestInstances);
+                    logger.info("Service {} cache updated with instances: {}", serviceName, latestInstances);
+                })
+                .build();
+
+        cache.start();
+    }
+
+    private String extractNodeName(String path) {
+        int lastSlash = path.lastIndexOf('/');
+        return (lastSlash == -1) ? path : path.substring(lastSlash + 1);
     }
 }
