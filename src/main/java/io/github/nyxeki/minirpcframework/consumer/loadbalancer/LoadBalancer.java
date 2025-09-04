@@ -1,4 +1,4 @@
-package io.github.nyxeki.minirpcframework.consumer;
+package io.github.nyxeki.minirpcframework.consumer.loadbalancer;
 
 import java.util.List;
 
